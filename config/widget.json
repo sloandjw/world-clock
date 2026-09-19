@@ -1,0 +1,72 @@
+{
+  "display": {
+    "title": "Global team",
+    "use24HourTime": false,
+    "showSeconds": false,
+    "showDayOffset": true,
+    "showStatus": true,
+    "updateIntervalSeconds": 15,
+    "width": 370,
+    "screenEdgeMargin": 24,
+    "topmost": true
+  },
+  "workingHours": {
+    "start": "09:00",
+    "end": "17:00",
+    "workDays": [1, 2, 3, 4, 5]
+  },
+  "theme": {
+    "background": "#F21B222C",
+    "surface": "#FF252E3A",
+    "surfaceHover": "#FF2C3745",
+    "text": "#FFF5F7FA",
+    "muted": "#FF98A6B7",
+    "subtle": "#FF6F7D8D",
+    "border": "#FF354151",
+    "available": "#FF4DDBA7",
+    "unavailable": "#FF657386",
+    "warning": "#FFFFBF69",
+    "fontFamily": "Segoe UI Variable Text, Segoe UI",
+    "cornerRadius": 16
+  },
+  "people": [
+    {
+      "id": "maya",
+      "name": "Maya",
+      "location": "San Francisco",
+      "timeZoneId": "Pacific Standard Time",
+      "timeZoneLabel": "PT",
+      "color": "#FF7D9BFF"
+    },
+    {
+      "id": "jonas",
+      "name": "Jonas",
+      "location": "Berlin",
+      "timeZoneId": "W. Europe Standard Time",
+      "timeZoneLabel": "CET",
+      "color": "#FF5DD6A8"
+    },
+    {
+      "id": "priya",
+      "name": "Priya",
+      "location": "Bengaluru",
+      "timeZoneId": "India Standard Time",
+      "timeZoneLabel": "IST",
+      "color": "#FFFFB86C",
+      "workingHours": {
+        "start": "10:00",
+        "end": "18:30",
+        "workDays": [1, 2, 3, 4, 5]
+      }
+    },
+    {
+      "id": "kenji",
+      "name": "Kenji",
+      "location": "Tokyo",
+      "timeZoneId": "Tokyo Standard Time",
+      "timeZoneLabel": "JST",
+      "color": "#FFFF7A9E"
+    }
+  ]
+}
+
