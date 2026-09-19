@@ -58,7 +58,7 @@ function Refresh-SettingsPeopleList {
     param([int]$SelectedIndex = 0)
     $script:SettingsPeopleList.Items.Clear()
     foreach ($person in $script:SettingsPeople) {
-        $label = if ([string]::IsNullOrWhiteSpace([string]$person.location)) { [string]$person.name } else { "$($person.name)  ·  $($person.location)" }
+        $label = if ([string]::IsNullOrWhiteSpace([string]$person.location)) { [string]$person.name } else { "$($person.name) - $($person.location)" }
         [void]$script:SettingsPeopleList.Items.Add($label)
     }
     if ($script:SettingsPeople.Count -gt 0) {
@@ -137,7 +137,7 @@ function Show-ConfigurationDialog {
             <Setter Property="Background" Value="#2C3745"/><Setter Property="Foreground" Value="#F5F7FA"/>
             <Setter Property="BorderBrush" Value="#435063"/><Setter Property="Padding" Value="14,8"/><Setter Property="FontSize" Value="14"/>
         </Style>
-        <Style TargetType="CheckBox"><Setter Property="FontSize" Value="14"/><Setter Property="Margin" Value="0,5,18,5"/></Style>
+        <Style TargetType="CheckBox"><Setter Property="Foreground" Value="#F5F7FA"/><Setter Property="FontSize" Value="14"/><Setter Property="Margin" Value="0,5,18,5"/></Style>
     </Window.Resources>
     <Grid Margin="22">
         <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
@@ -245,6 +245,7 @@ function Show-ConfigurationDialog {
 
     $script:SettingsPeopleList.Add_SelectionChanged({
         if ($script:SettingsLoading) { return }
+        $errorText.Text = ''
         Update-SettingsPersonFromFields
         $script:SettingsSelectedIndex = $script:SettingsPeopleList.SelectedIndex
         Show-SettingsPersonFields $script:SettingsSelectedIndex
@@ -255,6 +256,7 @@ function Show-ConfigurationDialog {
         $script:SettingsPersonEndBox.IsEnabled = $enabled
     })
     $addButton.Add_Click({
+        $errorText.Text = ''
         Update-SettingsPersonFromFields
         $newPerson = [pscustomobject]@{
             id = "coworker-$([guid]::NewGuid().ToString('N').Substring(0, 8))"
@@ -274,18 +276,18 @@ function Show-ConfigurationDialog {
         }
         $index = $script:SettingsPeopleList.SelectedIndex
         if ($index -ge 0) {
+            $errorText.Text = ''
             $script:SettingsPeople.RemoveAt($index)
             $script:SettingsSelectedIndex = -1
             Refresh-SettingsPeopleList ([Math]::Min($index, $script:SettingsPeople.Count - 1))
         }
     })
-    $cancelButton.Add_Click({ $settings.DialogResult = $false; $settings.Close() })
+    $cancelButton.Add_Click({ $settings.DialogResult = $false })
     $saveButton.Add_Click({
         try {
             $errorText.Text = ''
             Save-SettingsConfiguration
             $settings.DialogResult = $true
-            $settings.Close()
         }
         catch { $errorText.Text = $_.Exception.Message }
     })

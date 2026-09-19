@@ -31,42 +31,20 @@
   },
   "people": [
     {
-      "id": "maya",
-      "name": "Maya",
-      "location": "San Francisco",
+      "id": "jeremy-poole",
+      "name": "Jeremy Poole",
+      "location": "Seattle",
       "timeZoneId": "Pacific Standard Time",
       "timeZoneLabel": "PT",
       "color": "#FF7D9BFF"
     },
     {
-      "id": "jonas",
-      "name": "Jonas",
-      "location": "Berlin",
-      "timeZoneId": "W. Europe Standard Time",
-      "timeZoneLabel": "CET",
+      "id": "david-sloan",
+      "name": "David Sloan",
+      "location": "Greensboro",
+      "timeZoneId": "Eastern Standard Time",
+      "timeZoneLabel": "ET",
       "color": "#FF5DD6A8"
-    },
-    {
-      "id": "priya",
-      "name": "Priya",
-      "location": "Bengaluru",
-      "timeZoneId": "India Standard Time",
-      "timeZoneLabel": "IST",
-      "color": "#FFFFB86C",
-      "workingHours": {
-        "start": "10:00",
-        "end": "18:30",
-        "workDays": [1, 2, 3, 4, 5]
-      }
-    },
-    {
-      "id": "kenji",
-      "name": "Kenji",
-      "location": "Tokyo",
-      "timeZoneId": "Tokyo Standard Time",
-      "timeZoneLabel": "JST",
-      "color": "#FFFF7A9E"
     }
   ]
 }
-

@@ -234,13 +234,13 @@ function Update-Clocks {
             $parts = @()
             if ($script:Config.display.showStatus) { $parts += $status.Text }
             if ($script:Config.display.showDayOffset -and $dayLabel) { $parts += $dayLabel }
-            $row.Meta.Text = $parts -join ' · '
+            $row.Meta.Text = $parts -join ' - '
             switch ($status.Kind) {
                 'Available' { $row.Dot.Fill = Convert-ToBrush ([string]$script:Config.theme.available) }
                 'Warning' { $row.Dot.Fill = Convert-ToBrush ([string]$script:Config.theme.warning) }
                 default { $row.Dot.Fill = Convert-ToBrush ([string]$script:Config.theme.unavailable) }
             }
-            $row.Container.ToolTip = "$($row.Person.name) · $($row.Person.location) · $($status.Text)"
+            $row.Container.ToolTip = "$($row.Person.name) - $($row.Person.location) - $($status.Text)"
         }
         catch {
             $row.Time.Text = '--:--'
