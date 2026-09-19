@@ -26,7 +26,7 @@ The expanded widget displays:
 - Yesterday or tomorrow when the coworker's calendar day differs
 - Available, early, after-hours, or weekend status
 
-The widget can be dragged from its header, collapsed into a narrow time strip, kept above other windows, reloaded after configuration changes, or closed from its header or context menu.
+The widget can be dragged from its header, collapsed into a narrow time strip, kept above other windows, reloaded after configuration changes, or hidden to the Windows notification area. Closing the window keeps the clock running; the tray menu provides explicit Open and Exit actions.
 
 ## Configuration
 
@@ -47,6 +47,10 @@ Timezone IDs use Windows timezone names such as `Pacific Standard Time`, `GMT St
 - The widget opens near the upper-right corner on first launch.
 - Its last position and collapsed state are restored on later launches.
 - The widget does not occupy a taskbar slot.
+- Closing the window hides it to a custom globe-and-clock tray icon instead of stopping it.
+- Double-clicking the tray icon restores the widget; its menu provides Open, Reload, and Exit actions.
+- A synchronized Run at sign-in option in both context menus controls startup for the current Windows user.
+- A native settings window manages display preferences, default hours, coworkers, timezone selection, colors, and per-person working-hour overrides without requiring JSON editing.
 - Right-clicking opens configuration, reload, always-on-top, reset-position, and exit actions.
 - Pressing `Ctrl+R` reloads configuration.
 - Pressing `Ctrl+,` opens the configuration file.
@@ -67,6 +71,9 @@ Timezone IDs use Windows timezone names such as `Pacific Standard Time`, `GMT St
 world-clock/
 ├── config/
 │   └── widget.json
+├── assets/
+│   ├── world-clock.ico
+│   └── world-clock.png
 ├── docs/
 │   └── world-clock-widget-plan.md
 ├── src/
@@ -82,6 +89,6 @@ world-clock/
 - The widget displays accurate DST-aware times for valid Windows timezone IDs.
 - Working-hours status and date offsets update automatically.
 - Position, collapsed state, and always-on-top preference persist between launches.
+- The widget remains active in the notification area until Exit is chosen from its tray menu.
 - The widget is usable by mouse and keyboard at common Windows scaling levels.
 - Configuration validation can be run without opening the interface.
-

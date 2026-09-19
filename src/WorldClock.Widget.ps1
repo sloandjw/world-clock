@@ -8,15 +8,26 @@ Add-Type -AssemblyName PresentationFramework
 Add-Type -AssemblyName PresentationCore
 Add-Type -AssemblyName WindowsBase
 Add-Type -AssemblyName System.Xaml
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
 
 $script:ProjectRoot = Split-Path -Parent $PSScriptRoot
+$script:ScriptPath = $PSCommandPath
 $script:ConfigPath = Join-Path $script:ProjectRoot 'config\widget.json'
 $script:PreferenceDirectory = Join-Path $env:LOCALAPPDATA 'WorldClockWidget'
 $script:PreferencePath = Join-Path $script:PreferenceDirectory 'preferences.json'
+$script:IconPath = Join-Path $script:ProjectRoot 'assets\world-clock.ico'
+$script:StartupRegistryPath = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
+$script:StartupValueName = 'WorldClockWidget'
 $script:Rows = @()
 $script:IsCollapsed = $false
+$script:IsExiting = $false
+$script:TrayIcon = $null
+$script:WpfApplication = $null
 $script:Config = $null
 $script:Preferences = $null
+
+. (Join-Path $PSScriptRoot 'Settings.Dialog.ps1')
 
 function Convert-ToBrush {
     param([Parameter(Mandatory)][string]$Color)
@@ -244,8 +255,63 @@ function Set-CollapsedState {
     $script:IsCollapsed = $Collapsed
     $script:RowsHost.Visibility = if ($Collapsed) { 'Collapsed' } else { 'Visible' }
     $script:Footer.Visibility = if ($Collapsed) { 'Collapsed' } else { 'Visible' }
-    $script:CollapseButton.Content = if ($Collapsed) { '⌄' } else { '⌃' }
-    $script:CollapseButton.ToolTip = if ($Collapsed) { 'Expand coworker list' } else { 'Collapse coworker list' }
+    $script:CollapseButton.ToolTip = if ($Collapsed) { 'Restore coworker list' } else { 'Minimize coworker list' }
+}
+
+function Show-Widget {
+    $script:Window.Show()
+    $script:Window.WindowState = [Windows.WindowState]::Normal
+    $script:Window.Activate() | Out-Null
+    $script:Window.Topmost = $script:Window.Topmost
+}
+
+function Hide-Widget {
+    Save-Preferences
+    $script:Window.Hide()
+}
+
+function Exit-Widget {
+    $script:IsExiting = $true
+    $script:Window.Close()
+    if ($script:WpfApplication) {
+        $script:WpfApplication.Shutdown()
+    }
+}
+
+function Get-StartupCommand {
+    $powerShellPath = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
+    return ('"{0}" -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -STA -File "{1}"' -f $powerShellPath, $script:ScriptPath)
+}
+
+function Test-StartupEnabled {
+    try {
+        $value = Get-ItemPropertyValue -LiteralPath $script:StartupRegistryPath -Name $script:StartupValueName -ErrorAction Stop
+        return -not [string]::IsNullOrWhiteSpace([string]$value)
+    }
+    catch { return $false }
+}
+
+function Set-StartupEnabled {
+    param([bool]$Enabled)
+    try {
+        if ($Enabled) {
+            if (-not (Test-Path -LiteralPath $script:StartupRegistryPath)) {
+                [void](New-Item -Path $script:StartupRegistryPath -Force)
+            }
+            [void](New-ItemProperty -LiteralPath $script:StartupRegistryPath -Name $script:StartupValueName -Value (Get-StartupCommand) -PropertyType String -Force)
+        } else {
+            Remove-ItemProperty -LiteralPath $script:StartupRegistryPath -Name $script:StartupValueName -ErrorAction SilentlyContinue
+        }
+        $isEnabled = Test-StartupEnabled
+        if ($script:StartupMenuItem) { $script:StartupMenuItem.IsChecked = $isEnabled }
+        if ($script:TrayStartupMenuItem) { $script:TrayStartupMenuItem.Checked = $isEnabled }
+    }
+    catch {
+        [Windows.MessageBox]::Show("Windows could not update the startup setting. $($_.Exception.Message)", 'World Clock startup', 'OK', 'Error') | Out-Null
+        $isEnabled = Test-StartupEnabled
+        if ($script:StartupMenuItem) { $script:StartupMenuItem.IsChecked = $isEnabled }
+        if ($script:TrayStartupMenuItem) { $script:TrayStartupMenuItem.Checked = $isEnabled }
+    }
 }
 
 function Reset-WindowPosition {
@@ -256,7 +322,7 @@ function Reset-WindowPosition {
 }
 
 function Open-Configuration {
-    Start-Process -FilePath "$env:SystemRoot\System32\notepad.exe" -ArgumentList $script:ConfigPath
+    Show-ConfigurationDialog
 }
 
 function Load-Rows {
@@ -324,11 +390,15 @@ $xaml = @'
                     <TextBlock x:Name="LocalTimeText" FontSize="22" FontWeight="SemiBold" Margin="0,2,0,0" />
                 </StackPanel>
                 <Button x:Name="CollapseButton" Grid.Column="1" Width="32" Height="32" Margin="0,0,4,0"
-                        FontSize="15" Content="⌃" ToolTip="Collapse coworker list"
-                        AutomationProperties.Name="Collapse coworker list" />
+                        FontSize="15" ToolTip="Minimize coworker list"
+                        AutomationProperties.Name="Minimize coworker list">
+                    <TextBlock Text="_" FontFamily="Segoe UI" FontSize="16" Margin="0,-8,0,0" />
+                </Button>
                 <Button x:Name="CloseButton" Grid.Column="2" Width="32" Height="32" FontSize="14"
-                        Content="×" ToolTip="Close world clock"
-                        AutomationProperties.Name="Close world clock" />
+                        ToolTip="Hide world clock in the system tray"
+                        AutomationProperties.Name="Hide world clock in the system tray">
+                    <TextBlock Text="X" FontFamily="Segoe UI" FontSize="13" />
+                </Button>
             </Grid>
             <StackPanel x:Name="RowsHost" Grid.Row="1" />
             <Grid x:Name="Footer" Grid.Row="2" Margin="4,3,4,1">
@@ -384,11 +454,11 @@ $script:Header.Add_MouseLeftButtonDown({
     if ($_.ButtonState -eq [Windows.Input.MouseButtonState]::Pressed) { $script:Window.DragMove() }
 })
 $script:CollapseButton.Add_Click({ Set-CollapsedState (-not $script:IsCollapsed) })
-$script:CloseButton.Add_Click({ $script:Window.Close() })
+$script:CloseButton.Add_Click({ Hide-Widget })
 
 $contextMenu = [Windows.Controls.ContextMenu]::new()
 $openConfigItem = [Windows.Controls.MenuItem]::new()
-$openConfigItem.Header = 'Open configuration'
+$openConfigItem.Header = 'Settings...'
 $openConfigItem.InputGestureText = 'Ctrl+,'
 $openConfigItem.Add_Click({ Open-Configuration })
 $contextMenu.Items.Add($openConfigItem) | Out-Null
@@ -404,6 +474,14 @@ $topmostItem.IsCheckable = $true
 $topmostItem.IsChecked = $script:Window.Topmost
 $topmostItem.Add_Click({ $script:Window.Topmost = $this.IsChecked })
 $contextMenu.Items.Add($topmostItem) | Out-Null
+
+$script:StartupMenuItem = [Windows.Controls.MenuItem]::new()
+$script:StartupMenuItem.Header = 'Run at sign-in'
+$script:StartupMenuItem.IsCheckable = $true
+$script:StartupMenuItem.IsChecked = Test-StartupEnabled
+$script:StartupMenuItem.Add_Click({ Set-StartupEnabled ([bool]$this.IsChecked) })
+$contextMenu.Items.Add($script:StartupMenuItem) | Out-Null
+
 $resetItem = [Windows.Controls.MenuItem]::new()
 $resetItem.Header = 'Reset position'
 $resetItem.Add_Click({ Reset-WindowPosition })
@@ -411,9 +489,44 @@ $contextMenu.Items.Add($resetItem) | Out-Null
 $contextMenu.Items.Add([Windows.Controls.Separator]::new()) | Out-Null
 $exitItem = [Windows.Controls.MenuItem]::new()
 $exitItem.Header = 'Exit'
-$exitItem.Add_Click({ $script:Window.Close() })
+$exitItem.Add_Click({ Exit-Widget })
 $contextMenu.Items.Add($exitItem) | Out-Null
 $script:RootBorder.ContextMenu = $contextMenu
+
+$script:TrayIconImage = [System.Drawing.Icon]::new($script:IconPath)
+$script:TrayIcon = [System.Windows.Forms.NotifyIcon]::new()
+$script:TrayIcon.Icon = $script:TrayIconImage
+$script:TrayIcon.Text = 'Global team world clock'
+$script:TrayIcon.Visible = $true
+
+$trayMenu = [System.Windows.Forms.ContextMenuStrip]::new()
+$trayOpenItem = [System.Windows.Forms.ToolStripMenuItem]::new('Open World Clock')
+$trayOpenItem.Font = [System.Drawing.Font]::new($trayOpenItem.Font, [System.Drawing.FontStyle]::Bold)
+$trayOpenItem.Add_Click({ Show-Widget })
+[void]$trayMenu.Items.Add($trayOpenItem)
+
+$traySettingsItem = [System.Windows.Forms.ToolStripMenuItem]::new('Settings...')
+$traySettingsItem.Add_Click({ Show-Widget; Show-ConfigurationDialog })
+[void]$trayMenu.Items.Add($traySettingsItem)
+
+$trayReloadItem = [System.Windows.Forms.ToolStripMenuItem]::new('Reload configuration')
+$trayReloadItem.Add_Click({ Reload-Configuration })
+[void]$trayMenu.Items.Add($trayReloadItem)
+
+$script:TrayStartupMenuItem = [System.Windows.Forms.ToolStripMenuItem]::new('Run at sign-in')
+$script:TrayStartupMenuItem.CheckOnClick = $true
+$script:TrayStartupMenuItem.Checked = Test-StartupEnabled
+$script:TrayStartupMenuItem.Add_Click({ Set-StartupEnabled ([bool]$this.Checked) })
+[void]$trayMenu.Items.Add($script:TrayStartupMenuItem)
+
+[void]$trayMenu.Items.Add([System.Windows.Forms.ToolStripSeparator]::new())
+
+$trayExitItem = [System.Windows.Forms.ToolStripMenuItem]::new('Exit')
+$trayExitItem.Add_Click({ Exit-Widget })
+[void]$trayMenu.Items.Add($trayExitItem)
+
+$script:TrayIcon.ContextMenuStrip = $trayMenu
+$script:TrayIcon.Add_DoubleClick({ Show-Widget })
 
 $script:Window.Add_KeyDown({
     if ($_.Key -eq 'Escape') { Set-CollapsedState $true; $_.Handled = $true }
@@ -449,5 +562,22 @@ $script:Window.Add_ContentRendered({
     if ($propertyNames -contains 'collapsed') { Set-CollapsedState ([bool]$script:Preferences.collapsed) }
 })
 
-$script:Window.Add_Closed({ $timer.Stop(); Save-Preferences })
-[void]$script:Window.ShowDialog()
+$script:Window.Add_Closing({
+    param($sender, $eventArgs)
+    if (-not $script:IsExiting) {
+        $eventArgs.Cancel = $true
+        Hide-Widget
+    }
+})
+
+$script:Window.Add_Closed({
+    $timer.Stop()
+    Save-Preferences
+    $script:TrayIcon.Visible = $false
+    $script:TrayIcon.Dispose()
+    $script:TrayIconImage.Dispose()
+})
+
+$script:WpfApplication = [System.Windows.Application]::new()
+$script:WpfApplication.ShutdownMode = [System.Windows.ShutdownMode]::OnExplicitShutdown
+[void]$script:WpfApplication.Run($script:Window)
